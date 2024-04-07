@@ -4,15 +4,23 @@ Create a cookie-cutter from a DXF.
 Steps:
 
 - Create an outline in Inkscape
+- Draw the outer bound first.
+- Export a copy as an R12 DXF
 - Import into QCAD; correct scaling and positioning
+    - Check for loops and disconnected nodes
 - Feed into this program
 
 """
 
+import logging
 import sys
 from pathlib import Path
 
 import cadquery as cq
+
+logging.basicConfig()
+log = logging.getLogger(__name__)
+log.setLevel(10)
 
 # Horizontal/in-plane dimensions measured outward from the provided boundary.
 offsets = {
@@ -32,9 +40,32 @@ tolerance = 0.4 / 2
 
 
 def main(dxf: Path):
-    dxf = Path(dxf)
-    original_edges = cq.importers.importDXF(dxf, tol=tolerance)
+    dxf = Path(dxf).absolute()
+    original_wires = cq.importers.importDXF(dxf, tol=tolerance)._collectProperty(
+        "Wires"
+    )
 
+    cookie_cutter = cq.Workplane()
+
+    for wire in original_wires:
+        log.debug("Processing %s", wire)
+        try:
+            # Assume the first wire is the only exterior wire.
+            cutter_part = cutterify(wire)
+        except ValueError:
+            log.exception(
+                "A wire failed to cutterify. Check for loops or disjointed nodes in QCAD (zoom way in)."
+            )
+            log.info("continuing without a wire")
+            _create_debug_brep(wire, dxf.parent)
+            continue
+        cookie_cutter.add(cutter_part)
+
+    cookie_cutter.findSolid().exportStl(str(dxf.with_suffix(".stl")))
+
+
+def cutterify(wire: cq.Wire):
+    original_edges = cq.Workplane(wire)
     handle_edges = (
         original_edges.edges()
         .toPending()
@@ -61,15 +92,34 @@ def main(dxf: Path):
 
     compound = handle_edges.fuse(spine_edges, edge_edges)
 
-    cookie_cutter = (
+    # This ends up being half the height because half of the box extends below
+    # the plane and gets intersected away.
+    support_bar = (
+        original_edges.box(500, 10, heights["handle"]).findSolid().intersect(compound)
+    )
+
+    return (
         original_edges.wires()
         .toPending()
         .add(compound)
         .extrude(heights["edge"], combine="cut")
         .findSolid()
+        .fuse(support_bar)
     )
 
-    cookie_cutter.exportStl(str(dxf.with_suffix(".stl")))
+
+def _create_debug_brep(wire: cq.Wire, dir: Path):
+    debug_filename = Path(dir, "debug.brep")
+    log.info("Creating %s for debugging", debug_filename)
+    debug_views = [wire]
+    for offset in [-5, -1, -0.1, 0.1, 1, 5]:
+        try:
+            debug_views.extend(wire.offset2D(offset, "arc"))
+        except ValueError:
+            log.debug("Failed to offset with %smm", offset)
+            continue
+    debug_compound = cq.Compound.makeCompound(debug_views)
+    debug_compound.exportBrep(str(debug_filename))
 
 
 if __name__ == "__main__":
