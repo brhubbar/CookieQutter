@@ -1,5 +1,5 @@
 """
-Create a cookie-cutter from a DXF.
+Create a cookie-cutter STL from a DXF.
 
 Steps:
 
@@ -8,7 +8,8 @@ Steps:
 - Export a copy as an R12 DXF
 - Import into QCAD; correct scaling and positioning
     - Check for loops and disconnected nodes
-- Feed into this program
+- Export as R27 DXF from QCAD
+- Feed into this program with `python cc_from_dxf filename.dxf`
 
 """
 
@@ -65,6 +66,7 @@ def main(dxf: Path):
 
 
 def cutterify(wire: cq.Wire):
+    wire = wire.mirror("YZ")
     original_edges = cq.Workplane(wire)
     handle_edges = (
         original_edges.edges()
