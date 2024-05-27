@@ -40,7 +40,8 @@ heights = {
 tolerance = 0.4 / 2
 
 
-def main(dxf: Path):
+def main(dxf: Path) -> None:
+    """Process a DXF into a cookiecutter."""
     dxf = Path(dxf).absolute()
     original_wires = cq.importers.importDXF(dxf, tol=tolerance)._collectProperty(
         "Wires"
@@ -55,17 +56,18 @@ def main(dxf: Path):
             cutter_part = cutterify(wire)
         except ValueError:
             log.exception(
-                "A wire failed to cutterify. Check for loops or disjointed nodes in QCAD (zoom way in)."
+                "A wire failed to cutterify. Check for loops or disjointed nodes in QCAD (zoom way in)."  # noqa: E501
             )
-            log.info("continuing without a wire")
             _create_debug_brep(wire, dxf.parent)
+            log.info("Continuing without a wire.")
             continue
         cookie_cutter.add(cutter_part)
 
     cookie_cutter.findSolid().exportStl(str(dxf.with_suffix(".stl")))
 
 
-def cutterify(wire: cq.Wire):
+def cutterify(wire: cq.Wire) -> cq.Solid:
+    """Convert a wire into a cookiecutter."""
     wire = wire.mirror("YZ")
     original_edges = cq.Workplane(wire)
     handle_edges = (
@@ -110,8 +112,8 @@ def cutterify(wire: cq.Wire):
     )
 
 
-def _create_debug_brep(wire: cq.Wire, dir: Path):
-    debug_filename = Path(dir, "debug.brep")
+def _create_debug_brep(wire: cq.Wire, folder: Path):
+    debug_filename = Path(folder, "debug.brep")
     log.info("Creating %s for debugging", debug_filename)
     debug_views = [wire]
     for offset in [-5, -1, -0.1, 0.1, 1, 5]:
