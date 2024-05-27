@@ -16,6 +16,7 @@ Steps:
 import logging
 import sys
 from pathlib import Path
+from typing import Optional
 
 import cadquery as cq
 
@@ -40,9 +41,27 @@ heights = {
 tolerance = 0.4 / 2
 
 
-def main(dxf: Path) -> None:
-    """Process a DXF into a cookiecutter."""
+def main(dxf: Path, stl: Optional[Path] = None) -> Path:
+    """
+    Process a DXF into a cookiecutter.
+
+    Parameters
+    ----------
+    dxf : pathlib.Path
+        Path to the DXF to convert to a cookie cutter.
+    stl : pathlib.Path (optional)
+        Path to save the resulting STL at. If not provided, defaults to `dxf`
+        with the extension swapped for '.stl'.
+
+    Returns
+    -------
+    pathlib.Path
+        The path to the STL.
+
+    """
     dxf = Path(dxf).absolute()
+    stl = stl or dxf.with_suffix(".stl")
+
     original_wires = cq.importers.importDXF(dxf, tol=tolerance)._collectProperty(
         "Wires"
     )
@@ -58,12 +77,13 @@ def main(dxf: Path) -> None:
             log.exception(
                 "A wire failed to cutterify. Check for loops or disjointed nodes in QCAD (zoom way in)."  # noqa: E501
             )
-            _create_debug_brep(wire, dxf.parent)
+            _create_debug_brep(wire, stl.parent)
             log.info("Continuing without a wire.")
             continue
         cookie_cutter.add(cutter_part)
 
-    cookie_cutter.findSolid().exportStl(str(dxf.with_suffix(".stl")))
+    cookie_cutter.findSolid().exportStl(str(stl))
+    return stl
 
 
 def cutterify(wire: cq.Wire) -> cq.Solid:
