@@ -23,7 +23,7 @@ adding it later."
 
 from pathlib import Path
 
-import cadquery as cq
+from pytest import raises
 
 from cookie_qutter import from_dxf as sut
 
@@ -53,4 +53,18 @@ def test_bad_debugs(tmp_path):
     # We still create a best-effort stl.
     assert result.is_file()
     # The bad wire causes a debug brep to be created for viewing.
+    assert expected.is_file()
+
+
+def test_stl_export_fail_is_caught(tmp_path):
+    args = (Path(TEST_FILES, "caused_stl_export_fail.dxf"), Path(tmp_path, "bad.stl"))
+    expected = Path(tmp_path, "debug.brep")
+    unexpected = args[1]
+
+    with raises(RuntimeError):
+        sut.main(*args)
+
+    # Shouldn't have created an STL.
+    assert not unexpected.is_file()
+    # The missing export causes a debug brep to be created for viewing.
     assert expected.is_file()

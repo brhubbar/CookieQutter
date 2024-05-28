@@ -82,7 +82,11 @@ def main(dxf: Path, stl: Optional[Path] = None) -> Path:
             continue
         cookie_cutter.add(cutter_part)
 
-    cookie_cutter.findSolid().exportStl(str(stl))
+    log.debug("Exporting to %s", stl)
+    if not cookie_cutter.findSolid().exportStl(str(stl)):
+        log.error("STL export failed.")
+        _create_debug_brep(wire, stl.parent)
+        raise RuntimeError("STL export failed.")
     return stl
 
 
