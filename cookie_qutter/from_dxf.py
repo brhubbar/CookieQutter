@@ -70,6 +70,7 @@ def main(dxf: Path, stl: Optional[Path] = None) -> Path:
 
     for wire in original_wires:
         log.debug("Processing %s", wire)
+        log.info("Wire area: %4.2d mm^2", cq.Face.makeFromWires(wire).Area())
         try:
             # Assume the first wire is the only exterior wire.
             cutter_part = cutterify(wire)
