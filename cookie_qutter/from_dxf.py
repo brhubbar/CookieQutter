@@ -15,6 +15,7 @@ Steps:
 
 import logging
 import sys
+from os import environ
 from pathlib import Path
 from typing import Optional
 
@@ -22,7 +23,10 @@ import cadquery as cq
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
-log.setLevel(10)
+if environ.get("DEBUG"):
+    log.setLevel(10)
+else:
+    log.setLevel(20)
 
 # Horizontal/in-plane dimensions measured outward from the provided boundary.
 offsets = {
